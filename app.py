@@ -35,6 +35,7 @@ TABLA_PARTIDOS = "team_metricas_angel"
 # ============================================================================
 
 # Diagrama de ESTILO GLOBAL (métricas de estilo de juego)
+# Las columnas deben coincidir EXACTAMENTE con las claves de metricas_angel.json
 ESTILO_CONFIG = {
     'titulo_principal': 'ESTILO GLOBAL',
     'color_principal': '#FFD700',  # Amarillo/Dorado
@@ -50,20 +51,23 @@ ESTILO_CONFIG = {
         {'columna': '%Recuperaciones_rapidas', 'nombre': '% Recuperaciones Rápidas'},
         {'columna': 'Ritmo_Recuperación', 'nombre': 'Ritmo Recuperación'},
         {'columna': 'PPDA', 'nombre': 'PPDA'},
+        {'columna': 'Altura media recuperacion', 'nombre': 'Altura media recuperacion'},
+
     ]
 }
 
 # Diagrama de RENDIMIENTO GLOBAL (métricas de rendimiento)
+# Las columnas deben coincidir EXACTAMENTE con las claves de metricas_angel.json
 RENDIMIENTO_CONFIG = {
     'titulo_principal': 'RENDIMIENTO GLOBAL',
     'color_principal': '#00B050',  # Verde
     'metricas': [
-        {'columna': 'Eficacia_Construcción_Ofensiva', 'nombre': 'Eficacia Construcción Of. (%)'},
+        {'columna': 'Eficacia_Construccion_Ofensiva', 'nombre': 'Eficacia Construcción Of. (%)'},
         {'columna': 'Eficacia_Finalización', 'nombre': 'Eficacia Finalización (%)'},
         {'columna': 'Xg_Favor_NP', 'nombre': 'xG a Favor JD'},
         {'columna': 'Goal_global', 'nombre': 'Goles a Favor'},
         {'columna': 'Eficacia_Contención_Defensiva', 'nombre': 'Eficacia Contención Def. (%)'},
-        {'columna': 'Eficacia_Evitación', 'nombre': 'Eficacia Evitación (%)'},
+        {'columna': 'Eficacia_Evitacion', 'nombre': 'Eficacia Evitación (%)'},
         {'columna': 'xG_Contra_NP', 'nombre': 'xG en Contra JD'},
         {'columna': 'Goal_global_rival', 'nombre': 'Goles en Contra'},
         {'columna': '% Duelos Aéreos', 'nombre': '% Duelos Aéreos'},
@@ -120,7 +124,9 @@ def get_color_by_ranking(ranking):
 
 
 def crear_columna_no_disponible():
-    """Crea una columna gris oscuro para métricas no disponibles"""
+    """
+    Crea una columna gris oscuro para métricas no disponibles
+    """
     slots = []
     for pos in range(1, 23):
         slot = html.Div(
@@ -128,7 +134,7 @@ def crear_columna_no_disponible():
             title=f"Datos no disponibles",
             style={
                 'height': '20px',
-                'backgroundColor': '#4a4a4a',
+                'backgroundColor': '#4a4a4a',  # Gris oscuro
                 'borderBottom': '1px solid #333',
                 'display': 'flex',
                 'alignItems': 'center',
@@ -141,7 +147,11 @@ def crear_columna_no_disponible():
 
 
 def crear_columna_ranking(df, metrica_col, equipo_seleccionado, disponible=True):
-    """Crea una columna visual con 22 slots para representar el ranking"""
+    """
+    Crea una columna visual con 22 slots para representar el ranking
+    Los slots se colorean desde abajo (posición 22) hasta la posición del equipo
+    """
+    # Si la métrica no está disponible, mostrar columna gris oscuro
     if not disponible:
         return crear_columna_no_disponible()
     
@@ -150,6 +160,7 @@ def crear_columna_ranking(df, metrica_col, equipo_seleccionado, disponible=True)
     if ranking_col not in df.columns or metrica_col not in df.columns:
         return crear_columna_no_disponible()
     
+    # Obtener el ranking del equipo seleccionado
     equipo_data = df[df['fullName'] == equipo_seleccionado]
     if equipo_data.empty:
         return crear_columna_no_disponible()
@@ -157,8 +168,10 @@ def crear_columna_ranking(df, metrica_col, equipo_seleccionado, disponible=True)
     ranking_equipo = int(equipo_data[ranking_col].values[0])
     color_equipo = get_color_by_ranking(ranking_equipo)
     
+    # Crear los 22 slots (de posición 1 arriba a 22 abajo)
     slots = []
     for pos in range(1, 23):
+        # Encontrar qué equipo está en esta posición
         equipo_en_pos = df[df[ranking_col] == pos]
         
         if not equipo_en_pos.empty:
@@ -168,11 +181,15 @@ def crear_columna_ranking(df, metrica_col, equipo_seleccionado, disponible=True)
         else:
             tooltip_text = f"Posición {pos}"
         
+        # Colorear desde la posición del equipo hacia abajo (hasta 22)
+        # Es decir, si el equipo está en posición 5, se colorean del 5 al 22
         if pos >= ranking_equipo:
             slot_color = color_equipo
         else:
-            slot_color = '#E8E8E8'
+            # Slots vacíos (por encima del equipo - mejores posiciones)
+            slot_color = '#E8E8E8'  # Gris claro
         
+        # Marcar la posición exacta del equipo seleccionado
         is_equipo_pos = (pos == ranking_equipo)
         
         slot = html.Div(
@@ -198,9 +215,13 @@ def crear_columna_ranking(df, metrica_col, equipo_seleccionado, disponible=True)
 
 
 def crear_tabla_diagrama(df, config, equipo_seleccionado):
-    """Crea la tabla visual del diagrama con métricas"""
+    """
+    Crea la tabla visual del diagrama con métricas (sin jerarquía de bloques)
+    """
     color_principal = config['color_principal']
     
+    # Crear filas de la tabla usando una estructura de tabla HTML
+    # Cabecera de métricas
     header_cells = [
         html.Th(
             'Pos',
@@ -217,6 +238,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
         )
     ]
     
+    # Añadir cabeceras de métricas
     for metrica in config['metricas']:
         disponible = metrica.get('disponible', True)
         header_bg = '#f0f0f0' if disponible else '#4a4a4a'
@@ -240,6 +262,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
             )
         )
     
+    # Crear filas del body (22 posiciones)
     body_rows = []
     for pos in range(1, 23):
         row_cells = [
@@ -257,12 +280,14 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
             )
         ]
         
+        # Añadir celdas de cada métrica para esta posición
         for metrica in config['metricas']:
             disponible = metrica.get('disponible', True)
             metrica_col = metrica['columna']
             ranking_col = f"{metrica_col}_ranking"
             
             if not disponible or ranking_col not in df.columns or metrica_col not in df.columns:
+                # Métrica no disponible
                 cell_style = {
                     'backgroundColor': '#4a4a4a',
                     'height': '20px',
@@ -274,11 +299,13 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                 cell_content = ''
                 is_equipo_pos = False
             else:
+                # Obtener datos del equipo seleccionado
                 equipo_data = df[df['fullName'] == equipo_seleccionado]
                 if not equipo_data.empty:
                     ranking_equipo = int(equipo_data[ranking_col].values[0])
                     color_equipo = get_color_by_ranking(ranking_equipo)
                     
+                    # Encontrar qué equipo está en esta posición
                     equipo_en_pos = df[df[ranking_col] == pos]
                     if not equipo_en_pos.empty:
                         nombre_equipo_pos = equipo_en_pos['fullName'].values[0]
@@ -287,6 +314,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                     else:
                         tooltip = f"Posición {pos}"
                     
+                    # Colorear desde la posición del equipo hacia abajo
                     if pos >= ranking_equipo:
                         cell_color = color_equipo
                     else:
@@ -319,6 +347,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
         
         body_rows.append(html.Tr(row_cells))
     
+    # Crear tabla
     tabla = html.Table([
         html.Thead(html.Tr(header_cells)),
         html.Tbody(body_rows)
@@ -327,6 +356,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
         'width': 'auto',
     })
     
+    # Leyenda
     leyenda = html.Div([
         html.Span('■ 1-6', style={'color': '#00B050', 'marginRight': '15px', 'fontSize': '12px'}),
         html.Span('■ 7-16', style={'color': '#FFD700', 'marginRight': '15px', 'fontSize': '12px'}),
@@ -360,9 +390,7 @@ app.layout = html.Div([
     # Header
     html.Div([
         html.H1("Dashboard de Rankings de Equipos", 
-                style={'textAlign': 'center', 'color': '#333', 'marginBottom': '10px'}),
-        html.P("Segunda División 2024/2025 - Datos TruMedia", 
-               style={'textAlign': 'center', 'color': '#666', 'fontSize': '14px'}),
+                style={'textAlign': 'center', 'color': '#333', 'marginBottom': '20px'}),
     ], style={'padding': '20px', 'backgroundColor': '#f5f5f5'}),
     
     # Botones de navegación
@@ -430,7 +458,7 @@ app.layout = html.Div([
             html.Label('Seleccionar Métrica:', style={'fontWeight': 'bold', 'marginRight': '10px'}),
             dcc.Dropdown(
                 id='selector-metrica',
-                options=[],
+                options=[],  # Se llenará dinámicamente
                 value=None,
                 style={'width': '300px', 'display': 'inline-block'},
                 clearable=False,
@@ -441,12 +469,6 @@ app.layout = html.Div([
         dcc.Graph(id='grafico-barras', style={'height': '400px'}),
         
     ], style={'padding': '20px'}),
-    
-    # Footer
-    html.Div([
-        html.P("© 2025 RC Deportivo de La Coruña - Departamento de Análisis", 
-               style={'textAlign': 'center', 'color': '#999', 'fontSize': '12px', 'marginTop': '30px'}),
-    ]),
     
 ], style={'fontFamily': 'Arial, sans-serif', 'maxWidth': '1400px', 'margin': '0 auto'})
 
@@ -551,6 +573,7 @@ def actualizar_opciones_metrica(diagrama_activo):
     else:
         config = ESTILO_CONFIG
     
+    # Solo incluir métricas disponibles
     opciones = [
         {'label': m['nombre'], 'value': m['columna']}
         for m in config['metricas']
@@ -573,6 +596,7 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
     if not equipo_seleccionado or not metrica_seleccionada or df_partidos.empty:
         return go.Figure()
     
+    # Filtrar datos del equipo seleccionado
     df_equipo = df_partidos[df_partidos['fullName'] == equipo_seleccionado].copy()
     
     if df_equipo.empty or metrica_seleccionada not in df_equipo.columns:
@@ -583,8 +607,10 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
             font=dict(size=16)
         )
     
+    # Ordenar por fecha
     df_equipo = df_equipo.sort_values('gameDate')
     
+    # Obtener el nombre de la métrica para el título
     if diagrama_activo == 'rendimiento':
         config = RENDIMIENTO_CONFIG
     else:
@@ -596,12 +622,15 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
             nombre_metrica = m['nombre']
             break
     
+    # Crear etiquetas para el eje X (rival + fecha corta)
     df_equipo['etiqueta'] = df_equipo.apply(
         lambda row: f"{row['oppFullName']}", axis=1
     )
     
+    # Determinar color según el diagrama
     color_principal = '#FFD700' if diagrama_activo == 'estilo' else '#00B050'
     
+    # Crear gráfico de barras
     fig = go.Figure()
     
     fig.add_trace(go.Bar(
@@ -617,12 +646,11 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
         )
     ))
     
+    # Calcular el rango del eje Y para dejar espacio a las etiquetas
+    max_valor = df_equipo[metrica_seleccionada].max()
+    y_max = max_valor * 1.15  # 15% extra para las etiquetas
+    
     fig.update_layout(
-        title=dict(
-            text=f'{nombre_metrica} - {equipo_seleccionado}',
-            x=0.5,
-            font=dict(size=18)
-        ),
         xaxis=dict(
             title='Rival (ordenado por fecha)',
             tickangle=45,
@@ -630,13 +658,15 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
         ),
         yaxis=dict(
             title=nombre_metrica,
+            range=[0, y_max],  # Fijar rango para que las etiquetas no se corten
         ),
         showlegend=False,
-        margin=dict(b=120),
+        margin=dict(b=120, t=30),  # Añadir margen superior
         plot_bgcolor='white',
         paper_bgcolor='white',
     )
     
+    # Añadir línea de promedio
     promedio = df_equipo[metrica_seleccionada].mean()
     fig.add_hline(
         y=promedio,
