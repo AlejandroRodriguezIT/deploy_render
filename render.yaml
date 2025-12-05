@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: dashboard-rankings-trumedia
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:server --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: DB_USER
+        value: alen_depor
+      - key: DB_PASSWORD
+        value: ik3QJOq6n
+      - key: DB_HOST
+        value: 82.165.192.201
+      - key: DB_NAME
+        value: opta
