@@ -18,7 +18,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 # ============================================================================
-# CONFIGURACIÓN DE BASE DE DATOS (usando variables de entorno para seguridad)
+# CONFIGURACIÓN DE BASE DE DATOS
 # ============================================================================
 
 DB_USER = os.environ.get("DB_USER", "alen_depor")
