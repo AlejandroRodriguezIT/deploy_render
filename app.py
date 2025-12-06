@@ -41,6 +41,7 @@ ESTILO_CONFIG = {
     'color_principal': '#FFD700',  # Amarillo/Dorado
     'metricas': [
         {'columna': 'Iniciativa de Juego', 'nombre': 'Iniciativa de Juego'},
+        {'columna': 'Centroide Colectivo', 'nombre': 'Centroide Colectivo', 'vacia': True},
         {'columna': '%Posesión', 'nombre': '% Posesión'},
         {'columna': 'Elaboración_Ofensiva', 'nombre': 'Elaboración Ofensiva'},
         {'columna': '% Finalizaciones rapidas', 'nombre': '% Finalizaciones rapidas'},
@@ -70,6 +71,9 @@ RENDIMIENTO_CONFIG = {
         {'columna': 'Eficacia_Evitacion', 'nombre': 'Eficacia Evitación (%)'},
         {'columna': 'xG_Contra_NP', 'nombre': 'xG en Contra JD'},
         {'columna': 'Goal_global_rival', 'nombre': 'Goles en Contra'},
+        {'columna': 'Distancia Total', 'nombre': 'Distancia Total', 'vacia': True},
+        {'columna': 'Distancia >21km/h', 'nombre': 'Distancia >21km/h', 'vacia': True},
+        {'columna': 'Distancia >24km/h', 'nombre': 'Distancia >24km/h', 'vacia': True},
         {'columna': '% Duelos Aéreos', 'nombre': '% Duelos Aéreos'},
         {'columna': 'Goles_BP_Favor', 'nombre': 'Goles B.P. Favor'},
         {'columna': 'xG_BP_Favor', 'nombre': 'xG B.P. Favor'},
@@ -227,13 +231,14 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
             'Pos',
             style={
                 'backgroundColor': '#f0f0f0',
-                'padding': '10px 5px',
-                'fontSize': '12px',
-                'fontWeight': 'bold',
+                'padding': '15px 8px',
+                'fontSize': '15px',
+                'fontWeight': '500',
                 'textAlign': 'center',
-                'width': '40px',
-                'minWidth': '40px',
+                'width': '50px',
+                'minWidth': '50px',
                 'border': '1px solid #ccc',
+                'color': '#6c757d',
             }
         )
     ]
@@ -241,8 +246,18 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
     # Añadir cabeceras de métricas
     for metrica in config['metricas']:
         disponible = metrica.get('disponible', True)
-        header_bg = '#f0f0f0' if disponible else '#4a4a4a'
-        header_color = '#000' if disponible else '#999'
+        es_vacia = metrica.get('vacia', False)
+        
+        # Columnas vacías tienen fondo gris claro
+        if es_vacia:
+            header_bg = '#d0d0d0'
+            header_color = '#666'
+        elif not disponible:
+            header_bg = '#4a4a4a'
+            header_color = '#999'
+        else:
+            header_bg = '#f0f0f0'
+            header_color = '#000'
         
         header_cells.append(
             html.Th(
@@ -250,12 +265,12 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                 style={
                     'backgroundColor': header_bg,
                     'color': header_color,
-                    'padding': '10px 5px',
-                    'fontSize': '11px',
-                    'fontWeight': 'bold',
+                    'padding': '15px 8px',
+                    'fontSize': '13px',
+                    'fontWeight': '500',
                     'textAlign': 'center',
-                    'width': '80px',
-                    'minWidth': '80px',
+                    'width': '85px',
+                    'minWidth': '85px',
                     'border': '1px solid #ccc',
                     'wordWrap': 'break-word',
                 }
@@ -271,11 +286,13 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                 style={
                     'backgroundColor': '#f9f9f9',
                     'textAlign': 'center',
-                    'fontSize': '11px',
+                    'fontSize': '14px',
+                    'fontWeight': '500',
                     'padding': '0',
-                    'height': '20px',
-                    'width': '40px',
+                    'height': '28px',
+                    'width': '50px',
                     'border': '1px solid #eee',
+                    'color': '#6c757d',
                 }
             )
         ]
@@ -283,21 +300,43 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
         # Añadir celdas de cada métrica para esta posición
         for metrica in config['metricas']:
             disponible = metrica.get('disponible', True)
+            es_vacia = metrica.get('vacia', False)
             metrica_col = metrica['columna']
             ranking_col = f"{metrica_col}_ranking"
             
-            if not disponible or ranking_col not in df.columns or metrica_col not in df.columns:
+            # Columna vacía: sin relleno, sin tooltip, sin interacción
+            if es_vacia:
+                cell_style = {
+                    'backgroundColor': '#e8e8e8',
+                    'height': '28px',
+                    'width': '85px',
+                    'border': '1px solid #ccc',
+                    'padding': '0',
+                }
+                row_cells.append(
+                    html.Td(
+                        '',
+                        style=cell_style
+                    )
+                )
+            elif not disponible or ranking_col not in df.columns or metrica_col not in df.columns:
                 # Métrica no disponible
                 cell_style = {
                     'backgroundColor': '#4a4a4a',
-                    'height': '20px',
-                    'width': '80px',
+                    'height': '28px',
+                    'width': '85px',
                     'border': '1px solid #333',
                     'padding': '0',
                 }
                 tooltip = "Datos no disponibles"
                 cell_content = ''
-                is_equipo_pos = False
+                row_cells.append(
+                    html.Td(
+                        cell_content,
+                        title=tooltip,
+                        style=cell_style
+                    )
+                )
             else:
                 # Obtener datos del equipo seleccionado
                 equipo_data = df[df['fullName'] == equipo_seleccionado]
@@ -305,14 +344,43 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                     ranking_equipo = int(equipo_data[ranking_col].values[0])
                     color_equipo = get_color_by_ranking(ranking_equipo)
                     
-                    # Encontrar qué equipo está en esta posición
-                    equipo_en_pos = df[df[ranking_col] == pos]
-                    if not equipo_en_pos.empty:
-                        nombre_equipo_pos = equipo_en_pos['fullName'].values[0]
-                        valor_metrica = equipo_en_pos[metrica_col].values[0]
-                        tooltip = f"#{pos} {nombre_equipo_pos}: {valor_metrica:.2f}"
+                    # Encontrar TODOS los equipos que están en esta posición
+                    equipos_en_pos = df[df[ranking_col] == pos]
+                    if not equipos_en_pos.empty:
+                        # Obtener todos los nombres y el valor (es el mismo para todos)
+                        nombres_equipos = equipos_en_pos['fullName'].tolist()
+                        valor_metrica = equipos_en_pos[metrica_col].values[0]
+                        
+                        if len(nombres_equipos) > 1:
+                            # Múltiples equipos comparten esta posición
+                            nombres_str = ', '.join(nombres_equipos)
+                            tooltip = f"#{pos} ({len(nombres_equipos)} equipos): {nombres_str} - Valor: {valor_metrica:.2f}"
+                        else:
+                            # Solo un equipo en esta posición
+                            tooltip = f"#{pos} {nombres_equipos[0]}: {valor_metrica:.2f}"
                     else:
-                        tooltip = f"Posición {pos}"
+                        # Posición vacía por empate: buscar equipos en la posición superior más cercana
+                        # Buscar la posición más alta que tenga equipos y que "cubra" esta posición
+                        posicion_encontrada = None
+                        for pos_buscar in range(pos - 1, 0, -1):
+                            equipos_pos_superior = df[df[ranking_col] == pos_buscar]
+                            if not equipos_pos_superior.empty:
+                                num_equipos = len(equipos_pos_superior)
+                                # Si hay empate, estos equipos "ocupan" las posiciones desde pos_buscar hasta pos_buscar + num_equipos - 1
+                                if pos_buscar + num_equipos - 1 >= pos:
+                                    posicion_encontrada = pos_buscar
+                                    break
+                                else:
+                                    break  # No hay empate que cubra esta posición
+                        
+                        if posicion_encontrada is not None:
+                            equipos_empatados = df[df[ranking_col] == posicion_encontrada]
+                            nombres_equipos = equipos_empatados['fullName'].tolist()
+                            valor_metrica = equipos_empatados[metrica_col].values[0]
+                            nombres_str = ', '.join(nombres_equipos)
+                            tooltip = f"#{posicion_encontrada} ({len(nombres_equipos)} equipos): {nombres_str} - Valor: {valor_metrica:.2f}"
+                        else:
+                            tooltip = f"Posición {pos}"
                     
                     # Colorear desde la posición del equipo hacia abajo
                     if pos >= ranking_equipo:
@@ -328,22 +396,22 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
                 
                 cell_style = {
                     'backgroundColor': cell_color,
-                    'height': '20px',
-                    'width': '80px',
+                    'height': '28px',
+                    'width': '85px',
                     'border': '1px solid #fff',
                     'padding': '0',
                     'textAlign': 'center',
                     'cursor': 'pointer',
                 }
                 cell_content = '•' if is_equipo_pos else ''
-            
-            row_cells.append(
-                html.Td(
-                    cell_content,
-                    title=tooltip,
-                    style=cell_style
+                
+                row_cells.append(
+                    html.Td(
+                        cell_content,
+                        title=tooltip,
+                        style=cell_style
+                    )
                 )
-            )
         
         body_rows.append(html.Tr(row_cells))
     
@@ -358,10 +426,10 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
     
     # Leyenda
     leyenda = html.Div([
-        html.Span('■ 1-6', style={'color': '#00B050', 'marginRight': '15px', 'fontSize': '12px'}),
-        html.Span('■ 7-16', style={'color': '#FFD700', 'marginRight': '15px', 'fontSize': '12px'}),
-        html.Span('■ 17-22', style={'color': '#FF0000', 'fontSize': '12px'}),
-    ], style={'textAlign': 'right', 'padding': '10px', 'marginTop': '10px'})
+        html.Span('■ 1-6', style={'color': '#00B050', 'marginRight': '20px', 'fontSize': '15px', 'fontWeight': '500'}),
+        html.Span('■ 7-16', style={'color': '#FFD700', 'marginRight': '20px', 'fontSize': '15px', 'fontWeight': '500'}),
+        html.Span('■ 17-22', style={'color': '#FF0000', 'fontSize': '15px', 'fontWeight': '500'}),
+    ], style={'textAlign': 'center', 'padding': '15px', 'marginTop': '15px'})
     
     return html.Div([
         tabla,
@@ -369,6 +437,9 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
     ], style={
         'overflow': 'auto',
         'maxWidth': '100%',
+        'display': 'flex',
+        'flexDirection': 'column',
+        'alignItems': 'center',
     })
 
 
@@ -403,12 +474,14 @@ app.layout = html.Div([
                 'backgroundColor': '#FFD700',
                 'color': '#000',
                 'border': 'none',
+                'borderBottom': '3px solid transparent',
+                'borderRadius': '0',
                 'padding': '15px 30px',
-                'fontSize': '16px',
-                'fontWeight': 'bold',
+                'fontSize': '15px',
+                'fontWeight': '500',
                 'cursor': 'pointer',
                 'marginRight': '20px',
-                'borderRadius': '5px',
+                'textAlign': 'center',
             }
         ),
         html.Button(
@@ -419,11 +492,13 @@ app.layout = html.Div([
                 'backgroundColor': '#00B050',
                 'color': '#fff',
                 'border': 'none',
+                'borderBottom': '3px solid transparent',
+                'borderRadius': '0',
                 'padding': '15px 30px',
-                'fontSize': '16px',
-                'fontWeight': 'bold',
+                'fontSize': '15px',
+                'fontWeight': '500',
                 'cursor': 'pointer',
-                'borderRadius': '5px',
+                'textAlign': 'center',
             }
         ),
     ], style={'textAlign': 'center', 'padding': '20px'}),
@@ -470,7 +545,7 @@ app.layout = html.Div([
         
     ], style={'padding': '20px'}),
     
-], style={'fontFamily': 'Arial, sans-serif', 'maxWidth': '1400px', 'margin': '0 auto'})
+], style={'fontFamily': 'Arial, sans-serif', 'maxWidth': '98%', 'margin': '0 auto'})
 
 
 # ============================================================================
@@ -490,48 +565,56 @@ def cambiar_diagrama(clicks_estilo, clicks_rendimiento):
     estilo_activo = {
         'backgroundColor': '#FFD700',
         'color': '#000',
-        'border': '3px solid #000',
+        'border': 'none',
+        'borderBottom': '3px solid #000',
+        'borderRadius': '0',
         'padding': '15px 30px',
-        'fontSize': '16px',
-        'fontWeight': 'bold',
+        'fontSize': '15px',
+        'fontWeight': '500',
         'cursor': 'pointer',
         'marginRight': '20px',
-        'borderRadius': '5px',
+        'textAlign': 'center',
     }
     
     estilo_inactivo = {
         'backgroundColor': '#FFD700',
         'color': '#000',
         'border': 'none',
+        'borderBottom': '3px solid transparent',
+        'borderRadius': '0',
         'padding': '15px 30px',
-        'fontSize': '16px',
-        'fontWeight': 'bold',
+        'fontSize': '15px',
+        'fontWeight': '500',
         'cursor': 'pointer',
         'marginRight': '20px',
-        'borderRadius': '5px',
+        'textAlign': 'center',
         'opacity': '0.7',
     }
     
     rendimiento_activo = {
         'backgroundColor': '#00B050',
         'color': '#fff',
-        'border': '3px solid #000',
+        'border': 'none',
+        'borderBottom': '3px solid #000',
+        'borderRadius': '0',
         'padding': '15px 30px',
-        'fontSize': '16px',
-        'fontWeight': 'bold',
+        'fontSize': '15px',
+        'fontWeight': '500',
         'cursor': 'pointer',
-        'borderRadius': '5px',
+        'textAlign': 'center',
     }
     
     rendimiento_inactivo = {
         'backgroundColor': '#00B050',
         'color': '#fff',
         'border': 'none',
+        'borderBottom': '3px solid transparent',
+        'borderRadius': '0',
         'padding': '15px 30px',
-        'fontSize': '16px',
-        'fontWeight': 'bold',
+        'fontSize': '15px',
+        'fontWeight': '500',
         'cursor': 'pointer',
-        'borderRadius': '5px',
+        'textAlign': 'center',
         'opacity': '0.7',
     }
     
