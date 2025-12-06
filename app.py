@@ -5,6 +5,7 @@ Fecha: 2025
 
 Panel interactivo con diagramas de Estilo y Rendimiento
 Versión para despliegue en Render
+Actualizado: 2025-12-06 - Rankings corregidos para métricas invertidas
 """
 
 import os
