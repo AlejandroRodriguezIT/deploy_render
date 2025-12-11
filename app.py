@@ -30,6 +30,10 @@ DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 
 TABLA_RANKINGS = "team_stats_angel_ranking"
 TABLA_PARTIDOS = "team_metricas_angel"
+TABLA_FISICAS = "stats_fisicas_team"
+
+# Métricas físicas que requieren tabla especial
+METRICAS_FISICAS = ['Dist_Total', 'Dist_HSR', 'Dist_Sprint']
 
 # ============================================================================
 # CONFIGURACIÓN DE MÉTRICAS POR DIAGRAMA
@@ -111,6 +115,19 @@ def cargar_datos_partidos():
         return df
     except Exception as e:
         print(f"Error al cargar datos partidos: {e}")
+        return pd.DataFrame()
+
+
+def cargar_datos_fisicas():
+    """Carga los datos de métricas físicas por partido"""
+    try:
+        engine = create_engine(DATABASE_URL, echo=False)
+        query = f"SELECT * FROM {TABLA_FISICAS} ORDER BY gameDate"
+        df = pd.read_sql(query, engine)
+        engine.dispose()
+        return df
+    except Exception as e:
+        print(f"Error al cargar datos físicas: {e}")
         return pd.DataFrame()
 
 
@@ -451,6 +468,7 @@ def crear_tabla_diagrama(df, config, equipo_seleccionado):
 # Cargar datos iniciales
 df_rankings = cargar_datos_rankings()
 df_partidos = cargar_datos_partidos()
+df_fisicas = cargar_datos_fisicas()
 
 # Crear aplicación
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
@@ -677,22 +695,78 @@ def actualizar_opciones_metrica(diagrama_activo):
 )
 def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagrama_activo):
     """Genera el gráfico de barras con la evolución por partido"""
-    if not equipo_seleccionado or not metrica_seleccionada or df_partidos.empty:
+    if not equipo_seleccionado or not metrica_seleccionada:
         return go.Figure()
     
-    # Filtrar datos del equipo seleccionado
-    df_equipo = df_partidos[df_partidos['fullName'] == equipo_seleccionado].copy()
+    # Determinar si es una métrica física
+    es_metrica_fisica = metrica_seleccionada in METRICAS_FISICAS
     
-    if df_equipo.empty or metrica_seleccionada not in df_equipo.columns:
-        return go.Figure().add_annotation(
-            text="No hay datos disponibles para esta métrica",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16)
-        )
-    
-    # Ordenar por fecha
-    df_equipo = df_equipo.sort_values('gameDate')
+    if es_metrica_fisica:
+        # Usar tabla de métricas físicas
+        if df_fisicas.empty:
+            return go.Figure().add_annotation(
+                text="No hay datos físicos disponibles",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16)
+            )
+        
+        # Obtener el teamId del equipo seleccionado desde df_rankings
+        equipo_ranking = df_rankings[df_rankings['fullName'] == equipo_seleccionado]
+        if equipo_ranking.empty:
+            return go.Figure().add_annotation(
+                text="Equipo no encontrado",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16)
+            )
+        
+        team_id = equipo_ranking['teamId'].values[0]
+        
+        # Filtrar datos físicos del equipo
+        df_equipo = df_fisicas[df_fisicas['teamId'] == team_id].copy()
+        
+        if df_equipo.empty or metrica_seleccionada not in df_equipo.columns:
+            return go.Figure().add_annotation(
+                text="No hay datos disponibles para esta métrica",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16)
+            )
+        
+        # Ordenar por fecha
+        df_equipo = df_equipo.sort_values('gameDate')
+        
+        # Para métricas físicas, obtener el rival desde df_partidos
+        # Hacer merge con df_partidos para obtener oppFullName
+        if not df_partidos.empty and 'gameId' in df_partidos.columns:
+            df_partidos_equipo = df_partidos[df_partidos['fullName'] == equipo_seleccionado][['gameId', 'oppFullName']].drop_duplicates()
+            df_equipo = df_equipo.merge(df_partidos_equipo, on='gameId', how='left')
+            df_equipo['etiqueta'] = df_equipo['oppFullName'].fillna(df_equipo['gameDate'].astype(str))
+        else:
+            # Si no hay datos de partidos, usar la fecha como etiqueta
+            df_equipo['etiqueta'] = df_equipo['gameDate'].astype(str)
+    else:
+        # Usar tabla de partidos normal
+        if df_partidos.empty:
+            return go.Figure()
+        
+        # Filtrar datos del equipo seleccionado
+        df_equipo = df_partidos[df_partidos['fullName'] == equipo_seleccionado].copy()
+        
+        if df_equipo.empty or metrica_seleccionada not in df_equipo.columns:
+            return go.Figure().add_annotation(
+                text="No hay datos disponibles para esta métrica",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False,
+                font=dict(size=16)
+            )
+        
+        # Ordenar por fecha
+        df_equipo = df_equipo.sort_values('gameDate')
+        
+        # Crear etiquetas para el eje X (rival)
+        df_equipo['etiqueta'] = df_equipo['oppFullName']
     
     # Obtener el nombre de la métrica para el título
     if diagrama_activo == 'rendimiento':
@@ -705,11 +779,6 @@ def actualizar_grafico_barras(equipo_seleccionado, metrica_seleccionada, diagram
         if m['columna'] == metrica_seleccionada:
             nombre_metrica = m['nombre']
             break
-    
-    # Crear etiquetas para el eje X (rival + fecha corta)
-    df_equipo['etiqueta'] = df_equipo.apply(
-        lambda row: f"{row['oppFullName']}", axis=1
-    )
     
     # Determinar color según el diagrama
     color_principal = '#FFD700' if diagrama_activo == 'estilo' else '#00B050'
